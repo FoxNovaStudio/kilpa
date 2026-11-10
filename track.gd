@@ -139,36 +139,44 @@ func normal_at(s: float) -> Vector2:
 # ---------------------------------------------------------------- tekstuurit
 
 func _road_texture() -> ImageTexture:
-	var w := 128
-	var h := 256
-	var img := Image.create(w, h, false, Image.FORMAT_RGB8)
+	var w := 256
+	var h := 512
+	var img := Image.create_empty(w, h, false, Image.FORMAT_RGB8)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	for y in h:
 		for x in w:
-			var g := 0.19 + rng.randf() * 0.06
-			img.set_pixel(x, y, Color(g, g, g * 1.04))
+			var g := 0.16 + rng.randf() * 0.07
+			var fx := float(x) / w
+			var lane := absf(fx - 0.3) < 0.07 or absf(fx - 0.7) < 0.07
+			if lane:
+				g -= 0.035
+			if rng.randf() < 0.012:
+				g += 0.18
+			img.set_pixel(x, y, Color(g, g, g * 1.05))
 	var white := Color(0.92, 0.92, 0.9)
 	for y in h:
-		for x in range(4, 8):
-			img.set_pixel(x, y, white)
-			img.set_pixel(w - 1 - x, y, white)
-		if (y % 128) < 48:
-			for x in range(w / 2 - 1, w / 2 + 1):
+		for x in range(8, 15):
+			var c := white if rng.randf() > 0.08 else Color(0.7, 0.7, 0.68)
+			img.set_pixel(x, y, c)
+			img.set_pixel(w - 1 - x, y, c)
+		if (y % 256) < 96:
+			for x in range(w / 2 - 2, w / 2 + 2):
 				img.set_pixel(x, y, white)
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
 
 func _grass_texture() -> ImageTexture:
-	var s := 64
-	var img := Image.create(s, s, false, Image.FORMAT_RGB8)
+	var s := 128
+	var img := Image.create_empty(s, s, false, Image.FORMAT_RGB8)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11
 	for y in s:
 		for x in s:
 			var v := rng.randf()
-			var c := Color(0.16 + v * 0.06, 0.36 + v * 0.1, 0.12 + v * 0.05)
+			var lf := sin(x * 0.19) * sin(y * 0.23) * 0.5 + 0.5
+			var c := Color(0.12 + v * 0.07 + lf * 0.05, 0.28 + v * 0.12 + lf * 0.08, 0.07 + v * 0.05)
 			img.set_pixel(x, y, c)
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
@@ -257,7 +265,7 @@ func _build_road(root: Node3D) -> void:
 		_add_quad(st, a, b, c, d, Vector3.UP, Color.WHITE, v0, v1)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_texture = _road_texture()
-	mat.roughness = 0.85
+	mat.roughness = 0.62
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	_mesh_instance(root, st.commit(), mat)

@@ -68,30 +68,62 @@ func _draw() -> void:
 		_draw_pause()
 	if game.settings_open:
 		_draw_settings()
+	if game.help_open:
+		_draw_help()
 
 
 func _draw_menu() -> void:
 	_panel(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.3))
-	_txt("KILPA-AJO", 640, 180, 110, Color(1.0, 0.85, 0.2), "c")
-	_txt("%d kierrosta  ·  %d autoa" % [game.laps_total(), game.cars.size()], 640, 232, 28, Color(0.9, 0.95, 1.0), "c")
+	_txt("KILPA-AJO", 640, 175, 110, Color(1.0, 0.85, 0.2), "c")
+	_txt("%d kierrosta  ·  %d autoa" % [game.laps_total(), game.cars.size()], 640, 228, 28, Color(0.9, 0.95, 1.0), "c")
 
 	var diff: String = game.DIFF_NAMES[game.difficulty]
-	var items := ["Aloita kisa", "Vaikeustaso:  <  " + diff + "  >", "Asetukset"]
-	for i in 3:
-		var y := 322.0 + i * 56.0
+	var items := ["Aloita kisa", "Vaikeustaso:  <  " + diff + "  >", "Asetukset", "Ohjaus"]
+	for i in items.size():
+		var y := 320.0 + i * 56.0
 		var sel: bool = game.menu_sel == i
 		if sel:
 			draw_rect(Rect2(380, y - 40, 520, 54), Color(1, 1, 1, 0.2))
 		_txt(items[i], 640, y, 36, Color(1.0, 0.95, 0.5) if sel else Color.WHITE, "c")
 
 	var best: float = game.best_laps.get(game.difficulty, INF)
-	_txt("Paras kierrosaikasi (" + diff + "): " + _fmt_time(best), 640, 500, 22, Color(0.7, 0.9, 0.7), "c")
+	_txt("Paras kierrosaikasi (" + diff + "): " + _fmt_time(best), 640, 570, 24, Color(0.7, 0.9, 0.7), "c")
+	_panel(Rect2(190, 648, 900, 44))
+	_txt("ylös / alas = valitse     vasen / oikea = vaihda     A / Enter = vahvista     Start = aloita heti", 640, 678, 20, Color(1.0, 0.95, 0.6), "c")
 
-	_panel(Rect2(250, 530, 780, 160))
-	_txt("Kaasu: ZR / oikea liipaisin / nuoli ylös / W      Jarru ja peruutus: ZL / vasen liipaisin / nuoli alas / S", 270, 562, 18)
-	_txt("Ohjaus: vasen tatti / ristiohjain / nuolet / A D      Käsijarru: olkapainike / väli", 270, 590, 18)
-	_txt("Kamera: Y / C      Palauta radalle: X / R      Tauko: + / Esc      Koko ruutu: F11", 270, 618, 18)
-	_txt("Valikossa: ylös/alas = valitse   vasen/oikea = muuta   A / Enter = vahvista   + = aloita heti", 270, 656, 18, Color(1.0, 0.95, 0.6))
+
+func _draw_help() -> void:
+	_panel(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.6))
+	_panel(Rect2(140, 24, 1000, 676), Color(0.05, 0.07, 0.1, 1.0))
+	_txt("OHJAUS", 640, 90, 56, Color(1.0, 0.85, 0.2), "c")
+	var head := Color(0.6, 0.85, 1.0)
+	_txt("Toiminto", 180, 150, 26, head)
+	_txt("Ohjain", 530, 150, 26, head)
+	_txt("Näppäimistö", 830, 150, 26, head)
+	draw_rect(Rect2(170, 160, 940, 2), Color(1, 1, 1, 0.25))
+	var rows := [
+		["Kaasu", "RT tai A", "W tai nuoli ylös"],
+		["Jarru ja peruutus", "LT tai B", "S tai nuoli alas"],
+		["Ohjaus", "Vasen tatti / ristiohjain", "A ja D / nuolet"],
+		["Käsijarru", "LB tai RB", "Välilyönti"],
+		["Vaihda kameraa", "Y", "C"],
+		["Palauta auto radalle", "X", "R"],
+		["Tauko", "Start", "Esc tai P"],
+		["Aloita kisa alusta", "Back", "Backspace"],
+		["Koko ruutu", "-", "F11"],
+		["Valikoissa: vahvista", "A", "Enter"],
+		["Valikoissa: takaisin", "Back tai Start", "Backspace tai Esc"],
+	]
+	for i in rows.size():
+		var y := 202.0 + i * 38.0
+		if i % 2 == 0:
+			draw_rect(Rect2(170, y - 27, 940, 36), Color(1, 1, 1, 0.05))
+		_txt(rows[i][0], 180, y, 24)
+		_txt(rows[i][1], 530, y, 24, Color(1.0, 0.95, 0.6))
+		_txt(rows[i][2], 830, y, 24, Color(1.0, 0.95, 0.6))
+	_txt("Napit on nimetty Xbox-ohjaimen mukaan. Logitech-ohjaimessa käytä X-tilaa (kytkin pohjassa).", 640, 644, 20, Color(0.75, 0.8, 0.9), "c")
+	_txt("Nintendo-ohjaimessa A ja B ovat toisin päin. Kohdat tulevat silti samoille paikoille.", 640, 670, 20, Color(0.75, 0.8, 0.9), "c")
+	_txt("A / Enter = sulje", 640, 694, 20, Color.WHITE, "c")
 
 
 func _draw_race() -> void:
@@ -142,7 +174,7 @@ func _draw_race() -> void:
 	if game.state == game.S_RACE and game.wrong_way:
 		_txt("VÄÄRÄÄN SUUNTAAN!", 640, 270, 56, Color(1.0, 0.3, 0.25), "c")
 	if game.state == game.S_RACE and p.stuck_t > 2.5:
-		_txt("Paina R / vasen nappi palauttaaksesi auton radalle", 640, 330, 26, Color(1.0, 0.9, 0.5), "c")
+		_txt("Paina X / R palauttaaksesi auton radalle", 640, 330, 26, Color(1.0, 0.9, 0.5), "c")
 
 	# Lähtölaskenta
 	if game.state == game.S_COUNTDOWN:
@@ -195,15 +227,15 @@ func _draw_results() -> void:
 		y += 34.0
 		i += 1
 	_txt("Paras kierroksesi: " + _fmt_time(p.best_lap), 640, 520, 24, Color(0.7, 1.0, 0.7), "c")
-	_txt("A / Enter = uusi kisa      Select / Backspace = valikko", 640, 570, 22, Color(0.9, 0.95, 1.0), "c")
+	_txt("A / Enter = uusi kisa      Back / Backspace = valikko", 640, 570, 22, Color(0.9, 0.95, 1.0), "c")
 
 
 func _draw_pause() -> void:
 	_panel(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.55))
 	_txt("TAUKO", 640, 290, 100, Color.WHITE, "c")
-	_txt("+ / Esc = jatka", 640, 360, 30, Color(0.9, 0.95, 1.0), "c")
+	_txt("Start / Esc = jatka", 640, 360, 30, Color(0.9, 0.95, 1.0), "c")
 	_txt("A / Enter = asetukset", 640, 400, 30, Color(0.9, 0.95, 1.0), "c")
-	_txt("Select / Backspace = päävalikkoon", 640, 440, 30, Color(0.9, 0.95, 1.0), "c")
+	_txt("Back / Backspace = päävalikkoon", 640, 440, 30, Color(0.9, 0.95, 1.0), "c")
 
 
 func _draw_settings() -> void:
@@ -232,4 +264,4 @@ func _draw_settings() -> void:
 			draw_rect(bar, Color(0.2, 0.22, 0.28))
 			draw_rect(Rect2(bar.position, Vector2(bar.size.x * clampf(frac, 0.0, 1.0), bar.size.y)), Color(0.4, 0.8, 1.0) if sel else Color(0.45, 0.55, 0.65))
 	_txt("Kierrokset ja vastustajat tulevat voimaan seuraavassa kisassa.", 640, 664, 19, Color(0.7, 0.75, 0.85), "c")
-	_txt("ylös/alas = valitse   vasen/oikea = muuta   B / Esc = takaisin", 640, 688, 19, Color(0.9, 0.95, 1.0), "c")
+	_txt("ylös / alas = valitse     vasen / oikea = muuta     Back / Esc = takaisin", 640, 688, 19, Color(0.9, 0.95, 1.0), "c")

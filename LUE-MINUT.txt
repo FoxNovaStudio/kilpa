@@ -11,18 +11,27 @@ NÄIN SAAT PELIN KÄYNTIIN
 4. Paina oikeassa yläkulmassa olevaa ▶-nappia (tai F5). Peli käynnistyy.
    (Ensimmäisellä kerralla Godot voi miettiä hetken.)
 
-OHJAUS
-  Kaasu:            ZR / oikea liipaisin / nuoli ylös / W
-  Jarru, peruutus:  ZL / vasen liipaisin / nuoli alas / S
-  Ohjaus:           vasen tatti / ristiohjain / nuolet / A ja D
-  Käsijarru:        olkapainike / välilyönti
-  Kamera:           ylänappi (Y) / C   (takaa, kauempaa, ohjaamosta)
-  Palauta radalle:  vasen nappi (X) / R
-  Tauko:            + (Start) / Esc
-  Uusi kisa:        Select / Backspace
-  Koko ruutu:       F11
-Ohjain toimii, kun se on kytketty tietokoneeseen ennen pelin käynnistystä
-(myös Switch Pro Controller USB-johdolla tai Bluetoothilla).
+OHJAUS  (myös pelissä: päävalikko > Ohjaus)
+  Napit on nimetty Xbox-ohjaimen mukaan. Logitech-ohjaimessa käytä X-tilaa
+  (kytkin ohjaimen pohjassa). Nintendo-ohjaimessa A ja B ovat toisin päin.
+
+  Toiminto               Ohjain                       Näppäimistö
+  Kaasu                  RT tai A                     W tai nuoli ylös
+  Jarru ja peruutus      LT tai B                     S tai nuoli alas
+  Ohjaus                 Vasen tatti / ristiohjain    A ja D / nuolet
+  Käsijarru              LB tai RB                    Välilyönti
+  Vaihda kameraa         Y                            C
+  Palauta auto radalle   X                            R
+  Tauko                  Start                        Esc tai P
+  Aloita kisa alusta     Back                         Backspace
+  Koko ruutu             -                            F11
+  Valikoissa: vahvista   A                            Enter
+  Valikoissa: takaisin   Back tai Start               Backspace tai Esc
+Ohjain toimii, kun se on kytketty tietokoneeseen ennen pelin käynnistystä.
+
+TEHOSTEET
+  Renkaiden jäljet ja savu syntyvät jarruttaessa ja luistaessa, pöly ruohikolla
+  ajettaessa ja kipinät seinään osuessa.
 
 PELI
   Oletuksena 3 kierrosta ja 6 autoa. Valitse valikossa vaikeustaso vasemmalla/oikealla.
@@ -38,6 +47,8 @@ ASETUKSET (päävalikko > Asetukset, tai tauolla A / Enter)
   - Vastustajien määrä   0-7
   - Vastustajien tasoitus  Päällä: jäljessä olevat vastustajat ajavat hieman kovempaa
   - Kamera, Näkökenttä, Kameran tärinä
+  - Grafiikka            Korkea: varjot, hehku, savu, pöly ja kipinät. Matala: kevyempi
+                         vanhemmille koneille (jos peli nykii, valitse Matala)
   - Äänenvoimakkuus
   - Nopeusyksikkö        km/h tai mph
   - Minikartta           päälle tai pois

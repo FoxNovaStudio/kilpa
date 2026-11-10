@@ -17,7 +17,7 @@ const PLAYER_COLOR := Color(0.9, 0.1, 0.12)
 
 const DEFAULTS := {
 	"sens": 1.0, "deadzone": 0.15, "assist": 0, "laps": 3, "ai": 5, "rubber": 1,
-	"cam": 0, "fov": 70, "shake": 1, "volume": 80, "units": 0, "minimap": 1,
+	"cam": 0, "fov": 70, "shake": 1, "volume": 80, "units": 0, "minimap": 1, "quality": 1,
 }
 const SETTING_ROWS := [
 	{"key": "sens", "name": "Ohjauksen herkkyys", "type": "num", "min": 0.5, "max": 2.0, "step": 0.1, "fmt": "%.1f x"},
@@ -28,6 +28,7 @@ const SETTING_ROWS := [
 	{"key": "rubber", "name": "Vastustajien tasoitus", "type": "choice", "choices": ["Pois", "Päällä"]},
 	{"key": "cam", "name": "Kamera", "type": "choice", "choices": ["Takaa", "Kauempaa", "Ohjaamosta"]},
 	{"key": "fov", "name": "Näkökenttä", "type": "num", "min": 55, "max": 95, "step": 5, "fmt": "%d°", "int": true},
+	{"key": "quality", "name": "Grafiikka", "type": "choice", "choices": ["Matala", "Korkea"]},
 	{"key": "shake", "name": "Kameran tärinä", "type": "choice", "choices": ["Pois", "Päällä"]},
 	{"key": "volume", "name": "Äänenvoimakkuus", "type": "num", "min": 0, "max": 100, "step": 10, "fmt": "%d %%", "int": true},
 	{"key": "units", "name": "Nopeusyksikkö", "type": "choice", "choices": ["km/h", "mph"]},
@@ -53,6 +54,12 @@ var lap_msg_t := 0.0
 var best_laps := {}
 var settings: Dictionary = DEFAULTS.duplicate()
 var settings_open := false
+var help_open := false
+var env: Environment
+var sun: DirectionalLight3D
+var marks_mm: MultiMesh
+var mark_i := 0
+const MAX_MARKS := 2400
 var set_sel := 0
 var menu_sel := 0
 var hold_t := 0.0
@@ -83,6 +90,7 @@ func _ready() -> void:
 	track = TrackScript.new()
 	track.build()
 	track.build_visuals(self)
+	_setup_marks()
 
 	var layer := CanvasLayer.new()
 	add_child(layer)
@@ -148,13 +156,15 @@ func _setup_inputs() -> void:
 
 
 func _setup_world() -> void:
-	var env := Environment.new()
+	env = Environment.new()
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var sm := ProceduralSkyMaterial.new()
-	sm.sky_top_color = Color(0.22, 0.42, 0.8)
-	sm.sky_horizon_color = Color(0.72, 0.82, 0.92)
-	sm.ground_horizon_color = Color(0.72, 0.82, 0.92)
+	sm.sky_top_color = Color(0.14, 0.34, 0.76)
+	sm.sky_horizon_color = Color(0.74, 0.84, 0.94)
+	sm.ground_horizon_color = Color(0.74, 0.84, 0.94)
+	sm.sky_curve = 0.12
+	sm.sun_angle_max = 30.0
 	sm.ground_bottom_color = Color(0.3, 0.38, 0.3)
 	sky.sky_material = sm
 	env.sky = sky
@@ -163,14 +173,24 @@ func _setup_world() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.72, 0.82, 0.92)
-	env.fog_density = 0.0011
+	env.fog_density = 0.0012
+	env.fog_sun_scatter = 0.3
+	env.tonemap_white = 5.0
+	env.glow_intensity = 0.7
+	env.glow_bloom = 0.08
+	env.glow_hdr_threshold = 0.9
+	env.adjustment_contrast = 1.12
+	env.adjustment_saturation = 1.1
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, -40, 0)
-	sun.light_energy = 1.25
+	sun.light_energy = 1.6
+	sun.light_color = Color(1.0, 0.94, 0.82)
+	sun.shadow_blur = 1.6
+	sun.light_angular_distance = 0.6
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 120.0
 	add_child(sun)
@@ -225,6 +245,56 @@ func _save() -> void:
 	cf.save(SAVE_PATH)
 
 
+# ---------------------------------------------------------------- renkaiden jäljet
+
+func _setup_marks() -> void:
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.3, 0.01, 1.1)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.01, 0.01, 0.01, 0.5)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bm.material = mat
+	marks_mm = MultiMesh.new()
+	marks_mm.transform_format = MultiMesh.TRANSFORM_3D
+	marks_mm.mesh = bm
+	marks_mm.instance_count = MAX_MARKS
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = marks_mm
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+	_clear_marks()
+
+
+func _clear_marks() -> void:
+	if marks_mm == null:
+		return
+	var away := Transform3D(Basis(), Vector3(0, -100, 0))
+	for i in MAX_MARKS:
+		marks_mm.set_instance_transform(i, away)
+	mark_i = 0
+
+
+func _emit_marks_for(c, dt: float) -> void:
+	if not c.skid:
+		c.mark_acc = 1.2
+		return
+	c.mark_acc += c.vel.length() * dt
+	if c.mark_acc < 0.6:
+		return
+	c.mark_acc = 0.0
+	var heading: float = c.yaw
+	if c.vel.length() > 3.0:
+		heading = atan2(-c.vel.x, -c.vel.y)
+	var basis := Basis(Vector3.UP, heading)
+	var f: Vector2 = c.forward()
+	var r: Vector2 = c.right()
+	for side in [-0.98, 0.98]:
+		var p: Vector2 = c.pos + r * side - f * 1.35
+		marks_mm.set_instance_transform(mark_i, Transform3D(basis, Vector3(p.x, 0.045, p.y)))
+		mark_i = (mark_i + 1) % MAX_MARKS
+
+
 # ---------------------------------------------------------------- asetukset (valikko)
 
 func laps_total() -> int:
@@ -260,6 +330,15 @@ func _apply_settings() -> void:
 	InputMap.action_set_deadzone("steer_left", dz)
 	InputMap.action_set_deadzone("steer_right", dz)
 	cam_mode = int(settings["cam"])
+	var hq := int(settings["quality"]) == 1
+	if sun != null:
+		sun.shadow_enabled = hq
+	if env != null:
+		env.glow_enabled = hq
+		env.adjustment_enabled = hq
+	get_viewport().msaa_3d = Viewport.MSAA_4X if hq else Viewport.MSAA_DISABLED
+	for c in cars:
+		c.fx_on = hq
 	if audio_player != null:
 		var vol := float(settings["volume"]) / 100.0
 		audio_player.volume_db = linear_to_db(vol) if vol > 0.001 else -80.0
@@ -325,6 +404,7 @@ func _spawn_cars() -> void:
 	for c in cars:
 		c.queue_free()
 	cars.clear()
+	_clear_marks()
 	var base: float = DIFF_SKILL[difficulty]
 	var ai_count := clampi(roundi(float(settings["ai"])), 0, AI_NAMES.size())
 	var player_slot := mini(3, ai_count)
@@ -344,6 +424,7 @@ func _spawn_cars() -> void:
 		var row := slot / 2
 		var col := slot % 2
 		c.place(-10.0 - row * 10.0, 3.2 if col == 0 else -3.2)
+		c.fx_on = int(settings["quality"]) == 1
 		cars.append(c)
 	_compute_ranks()
 	wrong_way = false
@@ -420,6 +501,7 @@ func _sim_step(dt: float) -> void:
 				cap = 0.5
 			c.ai_drive(dt, cars, cap)
 		c.step(dt, race_time, laps_total())
+		_emit_marks_for(c, dt)
 
 	_collide_cars()
 
@@ -519,6 +601,10 @@ func _handle_ui_input(dt: float) -> void:
 		else:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 
+	if help_open:
+		if Input.is_action_just_pressed("confirm") or Input.is_action_just_pressed("back") or Input.is_action_just_pressed("pause"):
+			help_open = false
+		return
 	if settings_open:
 		_handle_settings_input(dt)
 		return
@@ -526,9 +612,9 @@ func _handle_ui_input(dt: float) -> void:
 	match state:
 		S_MENU:
 			if Input.is_action_just_pressed("menu_down"):
-				menu_sel = (menu_sel + 1) % 3
+				menu_sel = (menu_sel + 1) % 4
 			if Input.is_action_just_pressed("menu_up"):
-				menu_sel = (menu_sel + 2) % 3
+				menu_sel = (menu_sel + 3) % 4
 			if Input.is_action_just_pressed("steer_left"):
 				difficulty = (difficulty + 2) % 3
 				_spawn_cars()
@@ -540,6 +626,8 @@ func _handle_ui_input(dt: float) -> void:
 			if Input.is_action_just_pressed("confirm"):
 				if menu_sel == 2:
 					_open_settings()
+				elif menu_sel == 3:
+					help_open = true
 				else:
 					_start_race()
 			elif Input.is_action_just_pressed("pause"):

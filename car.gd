@@ -67,6 +67,15 @@ var tail_mat: StandardMaterial3D
 var roll := 0.0
 var pitch := 0.0
 
+# Tehosteet
+var smoke: CPUParticles3D
+var dust: CPUParticles3D
+var sparks: CPUParticles3D
+var spark_flag := false
+var skid := false
+var mark_acc := 1.2
+var fx_on := true
+
 
 func forward() -> Vector2:
 	return Vector2(-sin(yaw), -cos(yaw))
@@ -177,6 +186,7 @@ func step(dt: float, now: float, laps_total: int) -> void:
 		grip = 4.0
 	lat *= 1.0 - minf(1.0, grip * dt)
 	slip = absf(lat)
+	skid = not on_grass and ((slip > 3.5 and absf(sp) > 8.0) or (in_brake > 0.55 and sp > 22.0) or (in_hbrake and absf(sp) > 8.0))
 	vel = f2 * longv + r2 * lat
 	pos += vel * dt
 
@@ -203,6 +213,7 @@ func step(dt: float, now: float, laps_total: int) -> void:
 			vel *= 1.0 - clampf(vn * 0.012, 0.0, 0.3)
 			if vn > 2.0:
 				wall_hits += 1
+				spark_flag = true
 			impact = maxf(impact, vn)
 		vel *= 0.995
 
@@ -334,7 +345,10 @@ func _box(parent: Node3D, size: Vector3, p: Vector3, m: Material) -> MeshInstanc
 func _build_model() -> void:
 	body = Node3D.new()
 	add_child(body)
-	var paint := _mat(color, 0.3, 0.4)
+	var paint := _mat(color, 0.22, 0.55)
+	paint.clearcoat_enabled = true
+	paint.clearcoat = 0.8
+	paint.clearcoat_roughness = 0.08
 	var dark := _mat(Color(0.05, 0.06, 0.08), 0.2, 0.6)
 	var trim := _mat(Color(0.1, 0.1, 0.11), 0.7)
 	var light_c := color.lightened(0.35)
@@ -392,6 +406,50 @@ func _build_model() -> void:
 		wheel_pivots.append(pivot)
 		wheel_spins.append(spin)
 
+	smoke = _make_emitter(Color(0.86, 0.86, 0.88), 36, 1.1, 1.6, 0.45, Vector3(0, 0.25, 1.4), Vector3(0, 0.5, 0), true, false)
+	dust = _make_emitter(Color(0.55, 0.43, 0.29), 40, 0.9, 2.6, 0.4, Vector3(0, 0.25, 1.3), Vector3(0, -1.0, 0), true, false)
+	sparks = _make_emitter(Color(1.0, 0.8, 0.3), 24, 0.35, 7.0, 0.05, Vector3(0, 0.5, 0), Vector3(0, -12.0, 0), false, true)
+
+
+func _make_emitter(col: Color, amount: int, life: float, vel: float, size: float, pos: Vector3, grav: Vector3, grow: bool, burst: bool) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.amount = amount
+	p.lifetime = life
+	p.local_coords = false
+	p.emitting = false
+	p.direction = Vector3.UP
+	p.spread = 70.0 if burst else 35.0
+	p.initial_velocity_min = vel * 0.5
+	p.initial_velocity_max = vel
+	p.gravity = grav
+	if burst:
+		p.one_shot = true
+		p.explosiveness = 1.0
+	var sm := SphereMesh.new()
+	sm.radius = size
+	sm.height = size * 2.0
+	sm.radial_segments = 6
+	sm.rings = 3
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.vertex_color_use_as_albedo = true
+	sm.material = mat
+	p.mesh = sm
+	p.color = col
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1, 1, 1, 0.55 if grow else 1.0))
+	grad.set_color(1, Color(1, 1, 1, 0.0))
+	p.color_ramp = grad
+	if grow:
+		var cv := Curve.new()
+		cv.add_point(Vector2(0.0, 0.6))
+		cv.add_point(Vector2(1.0, 2.4))
+		p.scale_amount_curve = cv
+	p.position = pos
+	add_child(p)
+	return p
+
 
 func update_visual(dt: float) -> void:
 	position = Vector3(pos.x, 0.0, pos.y)
@@ -409,3 +467,10 @@ func update_visual(dt: float) -> void:
 	wheel_pivots[0].rotation.y = -steer * 0.45
 	wheel_pivots[1].rotation.y = -steer * 0.45
 	tail_mat.emission_energy_multiplier = 3.5 if (in_brake > 0.1 and sp > 0.5) else 0.6
+	smoke.emitting = fx_on and skid and dt > 0.0
+	dust.emitting = fx_on and on_grass and absf(sp) > 12.0 and dt > 0.0
+	if spark_flag:
+		spark_flag = false
+		if fx_on:
+			sparks.restart()
+			sparks.emitting = true
