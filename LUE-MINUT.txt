@@ -1,0 +1,53 @@
+KILPA-AJO  -  3D-kilpa-ajopeli (Godot 4)
+=========================================
+
+NÄIN SAAT PELIN KÄYNTIIN
+1. Lataa Godot osoitteesta https://godotengine.org/download  (Godot 4, tavallinen
+   versio, EI ".NET"-versiota). Se tulee zip-pakettina, eikä sitä tarvitse asentaa:
+   pura zip ja kaksoisklikkaa Godot-ohjelmaa.
+2. Pura tämä kilpa-ajo.zip omaan kansioonsa.
+3. Paina Godotin projektilistassa "Import" (Tuo), valitse kansiosta tiedosto
+   project.godot ja paina "Import & Edit".
+4. Paina oikeassa yläkulmassa olevaa ▶-nappia (tai F5). Peli käynnistyy.
+   (Ensimmäisellä kerralla Godot voi miettiä hetken.)
+
+OHJAUS
+  Kaasu:            ZR / oikea liipaisin / nuoli ylös / W
+  Jarru, peruutus:  ZL / vasen liipaisin / nuoli alas / S
+  Ohjaus:           vasen tatti / ristiohjain / nuolet / A ja D
+  Käsijarru:        olkapainike / välilyönti
+  Kamera:           ylänappi (Y) / C   (takaa, kauempaa, ohjaamosta)
+  Palauta radalle:  vasen nappi (X) / R
+  Tauko:            + (Start) / Esc
+  Uusi kisa:        Select / Backspace
+  Koko ruutu:       F11
+Ohjain toimii, kun se on kytketty tietokoneeseen ennen pelin käynnistystä
+(myös Switch Pro Controller USB-johdolla tai Bluetoothilla).
+
+PELI
+  Oletuksena 3 kierrosta ja 6 autoa. Valitse valikossa vaikeustaso vasemmalla/oikealla.
+  Paras kierrosaikasi tallentuu automaattisesti.
+
+ASETUKSET (päävalikko > Asetukset, tai tauolla A / Enter)
+  Liiku ylös/alas, muuta arvoa vasemmalla/oikealla (pitämällä arvo muuttuu nopeammin).
+  Asetukset tallentuvat automaattisesti.
+  - Ohjauksen herkkyys   alle 1.0 = pehmeä ohjaus keskellä, yli 1.0 = nopea ja terävä
+  - Tatin kuollut alue   suurenna, jos auto kääntyy itsestään (tatti "ajelehtii")
+  - Ohjausapu            Pois / Matala / Korkea: pitää auton radan suunnassa
+  - Kierrosten määrä     1-10
+  - Vastustajien määrä   0-7
+  - Vastustajien tasoitus  Päällä: jäljessä olevat vastustajat ajavat hieman kovempaa
+  - Kamera, Näkökenttä, Kameran tärinä
+  - Äänenvoimakkuus
+  - Nopeusyksikkö        km/h tai mph
+  - Minikartta           päälle tai pois
+  Kierrokset ja vastustajat tulevat voimaan seuraavassa kisassa.
+
+OMAN OHJELMAN TEKEMINEN (ei pakollinen)
+  Godotissa: Project > Export > Add... > Windows Desktop (tai Linux/macOS).
+  Godot pyytää ensin lataamaan "export templates" - paina Download.
+  Sen jälkeen "Export Project" tekee .exe-tiedoston, jonka voi antaa kavereille.
+
+JOS JOKIN EI TOIMI
+  Godotin alareunan "Debugger / Output" -välilehdellä näkyy punainen virheilmoitus.
+  Kopioi se ja lähetä minulle, niin korjaan.
