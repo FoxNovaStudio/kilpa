@@ -9,8 +9,8 @@ const S_MENU := 0
 const S_COUNTDOWN := 1
 const S_RACE := 2
 const S_RESULTS := 3
-const DIFF_NAMES := ["Helppo", "Normaali", "Kova"]
-const DIFF_SKILL := [0.82, 0.91, 0.99]
+const DIFF_NAMES := ["Helppo", "Normaali", "Kova", "Mestari"]
+const DIFF_SKILL := [0.82, 0.92, 1.0, 1.07]
 const AI_NAMES := ["Aaro", "Liisa", "Eero", "Sofia", "Veeti", "Oona", "Juho"]
 const AI_COLORS := [Color(0.15, 0.4, 0.95), Color(0.95, 0.8, 0.1), Color(0.2, 0.75, 0.3), Color(0.95, 0.5, 0.1), Color(0.65, 0.25, 0.85), Color(0.1, 0.75, 0.8), Color(0.95, 0.4, 0.6)]
 const PLAYER_COLOR := Color(0.9, 0.1, 0.12)
@@ -44,6 +44,9 @@ var player
 var state := S_MENU
 var paused := false
 var difficulty := 1
+var track_i := 0
+var world_root: Node3D
+var sky_mat: ProceduralSkyMaterial
 var race_time := 0.0
 var count_t := 0.0
 var go_t := 0.0
@@ -87,9 +90,6 @@ var snd_speed := 0.0
 func _ready() -> void:
 	_setup_inputs()
 	_setup_world()
-	track = TrackScript.new()
-	track.build()
-	track.build_visuals(self)
 	_setup_marks()
 
 	var layer := CanvasLayer.new()
@@ -97,9 +97,14 @@ func _ready() -> void:
 	hud = HudScript.new()
 	hud.game = self
 	layer.add_child(hud)
-	hud.build_map(track)
 
 	_load_save()
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--track="):
+			track_i = int(a.substr(8))
+		if a.begins_with("--diff="):
+			difficulty = int(a.substr(7))
+	_load_track(track_i, false)
 	_setup_audio()
 	_apply_settings()
 	_spawn_cars()
@@ -167,6 +172,7 @@ func _setup_world() -> void:
 	sm.sun_angle_max = 30.0
 	sm.ground_bottom_color = Color(0.3, 0.38, 0.3)
 	sky.sky_material = sm
+	sky_mat = sm
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_energy = 0.9
@@ -221,16 +227,19 @@ func _load_save() -> void:
 	var cf := ConfigFile.new()
 	if cf.load(SAVE_PATH) != OK:
 		return
-	difficulty = int(cf.get_value("game", "difficulty", 1))
+	difficulty = clampi(int(cf.get_value("game", "difficulty", 1)), 0, DIFF_NAMES.size() - 1)
+	track_i = clampi(int(cf.get_value("game", "track", 0)), 0, TrackScript.TRACKS.size() - 1)
 	for k in DEFAULTS.keys():
 		var def_v = DEFAULTS[k]
 		var v = cf.get_value("settings", k, def_v)
 		if typeof(v) == TYPE_FLOAT or typeof(v) == TYPE_INT:
 			settings[k] = v
-	for d in 3:
-		var v: float = float(cf.get_value("best", str(d), INF))
-		if v < INF:
-			best_laps[d] = v
+	for t in TrackScript.TRACKS.size():
+		for d in DIFF_NAMES.size():
+			var kk := t * 10 + d
+			var v: float = float(cf.get_value("best", str(kk), INF))
+			if v < INF:
+				best_laps[kk] = v
 
 
 func _save() -> void:
@@ -238,6 +247,7 @@ func _save() -> void:
 		return
 	var cf := ConfigFile.new()
 	cf.set_value("game", "difficulty", difficulty)
+	cf.set_value("game", "track", track_i)
 	for k in settings.keys():
 		cf.set_value("settings", k, settings[k])
 	for d in best_laps.keys():
@@ -246,6 +256,37 @@ func _save() -> void:
 
 
 # ---------------------------------------------------------------- renkaiden jäljet
+
+func best_key() -> int:
+	return track_i * 10 + difficulty
+
+
+# Lataa rata: rakentaa 3D-maailman uudelleen ja asettaa sään ja pinnan
+func _load_track(i: int, respawn: bool = true) -> void:
+	track_i = clampi(i, 0, TrackScript.TRACKS.size() - 1)
+	if world_root != null:
+		world_root.queue_free()
+	world_root = Node3D.new()
+	add_child(world_root)
+	track = TrackScript.new()
+	track.setup(TrackScript.TRACKS[track_i])
+	track.build_visuals(world_root)
+	var ep: Dictionary = track.env_params()
+	sky_mat.sky_top_color = ep["sky_top"]
+	sky_mat.sky_horizon_color = ep["sky_hor"]
+	sky_mat.ground_horizon_color = ep["sky_hor"]
+	sky_mat.ground_bottom_color = ep["fog"]
+	env.fog_light_color = ep["fog"]
+	env.fog_density = ep["fog_density"]
+	sun.light_energy = ep["sun"]
+	sun.light_color = ep["sun_col"]
+	var mm_mat = marks_mm.mesh.material
+	if mm_mat != null:
+		mm_mat.albedo_color = ep["mark"]
+	hud.build_map(track)
+	if respawn:
+		_spawn_cars()
+
 
 func _setup_marks() -> void:
 	var bm := BoxMesh.new()
@@ -423,7 +464,8 @@ func _spawn_cars() -> void:
 			ai_i += 1
 		var row := slot / 2
 		var col := slot % 2
-		c.place(-10.0 - row * 10.0, 3.2 if col == 0 else -3.2)
+		var glat: float = clampf(track.road_half * 0.4, 1.7, 3.2)
+		c.place(-10.0 - row * 10.0, glat if col == 0 else -glat)
 		c.fx_on = int(settings["quality"]) == 1
 		cars.append(c)
 	_compute_ranks()
@@ -492,7 +534,11 @@ func _sim_step(dt: float) -> void:
 		var pace_mul := 1.0
 		if not c.is_player and int(settings["rubber"]) == 1:
 			var gap: float = player.progress - c.progress
-			pace_mul = 1.0 + clampf(gap / 300.0, -1.0, 1.0) * 0.04
+			var k := 0.04
+			if difficulty >= 2:
+				k = 0.03
+				gap = maxf(gap, 0.0)    # vaikeilla tasoilla tasoitus vain auttaa, jos jäät jälkeen
+			pace_mul = 1.0 + clampf(gap / 300.0, -1.0, 1.0) * k
 		if c.is_player and not c.finished and not auto_player:
 			_read_player_input()
 		else:
@@ -520,9 +566,9 @@ func _sim_step(dt: float) -> void:
 			if c.is_player:
 				lap_msg = "Kierros %d: %s" % [c.lap, hud._fmt_time(c.last_lap)]
 				lap_msg_t = 3.0
-				var rec: float = best_laps.get(difficulty, INF)
+				var rec: float = best_laps.get(best_key(), INF)
 				if c.last_lap < rec:
-					best_laps[difficulty] = c.last_lap
+					best_laps[best_key()] = c.last_lap
 					lap_msg += "   (uusi ennätys!)"
 					_save()
 		if c.finished and c.finish_pos == 0:
@@ -612,21 +658,27 @@ func _handle_ui_input(dt: float) -> void:
 	match state:
 		S_MENU:
 			if Input.is_action_just_pressed("menu_down"):
-				menu_sel = (menu_sel + 1) % 4
+				menu_sel = (menu_sel + 1) % 5
 			if Input.is_action_just_pressed("menu_up"):
-				menu_sel = (menu_sel + 3) % 4
+				menu_sel = (menu_sel + 4) % 5
+			var mdir := 0
 			if Input.is_action_just_pressed("steer_left"):
-				difficulty = (difficulty + 2) % 3
-				_spawn_cars()
-				_save()
+				mdir = -1
 			if Input.is_action_just_pressed("steer_right"):
-				difficulty = (difficulty + 1) % 3
+				mdir = 1
+			if mdir != 0 and menu_sel == 1:
+				var tc: int = TrackScript.TRACKS.size()
+				_load_track((track_i + mdir + tc) % tc)
+				_save()
+			elif mdir != 0 and menu_sel == 2:
+				var dc: int = DIFF_NAMES.size()
+				difficulty = (difficulty + mdir + dc) % dc
 				_spawn_cars()
 				_save()
 			if Input.is_action_just_pressed("confirm"):
-				if menu_sel == 2:
+				if menu_sel == 3:
 					_open_settings()
-				elif menu_sel == 3:
+				elif menu_sel == 4:
 					help_open = true
 				else:
 					_start_race()
@@ -756,6 +808,9 @@ func _run_autotest() -> void:
 			min_sep = minf(min_sep, track.pts[i].distance_to(track.pts[j]))
 	print("Radan osien pienin etäisyys toisistaan: %.1f m (vallien välissä tarvitaan > 28)" % min_sep)
 
+	print("Rata: %s, pinta %s, pito %.2f, vaikeus %s" % [track.track_name, track.surface, track.grip, DIFF_NAMES[difficulty]])
+	if "--norubber" in OS.get_cmdline_user_args():
+		settings["rubber"] = 0
 	_start_race()
 	var t := 0.0
 	var dt := 1.0 / 60.0

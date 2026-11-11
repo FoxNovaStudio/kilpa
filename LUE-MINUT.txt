@@ -34,7 +34,19 @@ TEHOSTEET
   ajettaessa ja kipinät seinään osuessa.
 
 PELI
-  Oletuksena 3 kierrosta ja 6 autoa. Valitse valikossa vaikeustaso vasemmalla/oikealla.
+  Oletuksena 3 kierrosta ja 6 autoa. Valitse valikossa rata ja vaikeustaso vasemmalla/oikealla.
+
+RADAT
+  Kilparata   Asfaltti, leveä ja nopea. Hyvä pito.
+  Metsärallia Sora, kapea ja mutkainen. Pito on selvästi huonompi: auto liukuu
+              kaarteissa, jarrutusmatkat pitenevät ja seinät ovat lähellä.
+  Talvirallia Lumi, liukas ja pitkät kaarteet. Heikoin pito, aja pehmeästi.
+  Jokaiselle radalle ja vaikeustasolle tallentuu oma ennätyskierros.
+
+VAIKEUSTASOT
+  Helppo, Normaali, Kova ja Mestari. Mestari on selvästi nopein, eikä
+  vastustajien tasoitus (Asetukset) hidasta kärkeä vaikeilla tasoilla.
+
   Paras kierrosaikasi tallentuu automaattisesti.
 
 ASETUKSET (päävalikko > Asetukset, tai tauolla A / Enter)

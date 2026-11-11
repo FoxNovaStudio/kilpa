@@ -78,16 +78,18 @@ func _draw_menu() -> void:
 	_txt("%d kierrosta  ·  %d autoa" % [game.laps_total(), game.cars.size()], 640, 228, 28, Color(0.9, 0.95, 1.0), "c")
 
 	var diff: String = game.DIFF_NAMES[game.difficulty]
-	var items := ["Aloita kisa", "Vaikeustaso:  <  " + diff + "  >", "Asetukset", "Ohjaus"]
+	var tdef: Dictionary = game.track.def
+	var items := ["Aloita kisa", "Rata:  <  " + String(tdef["name"]) + "  >", "Vaikeustaso:  <  " + diff + "  >", "Asetukset", "Ohjaus"]
 	for i in items.size():
-		var y := 320.0 + i * 56.0
+		var y := 308.0 + i * 52.0
 		var sel: bool = game.menu_sel == i
 		if sel:
-			draw_rect(Rect2(380, y - 40, 520, 54), Color(1, 1, 1, 0.2))
-		_txt(items[i], 640, y, 36, Color(1.0, 0.95, 0.5) if sel else Color.WHITE, "c")
+			draw_rect(Rect2(380, y - 38, 520, 50), Color(1, 1, 1, 0.2))
+		_txt(items[i], 640, y, 34, Color(1.0, 0.95, 0.5) if sel else Color.WHITE, "c")
 
-	var best: float = game.best_laps.get(game.difficulty, INF)
-	_txt("Paras kierrosaikasi (" + diff + "): " + _fmt_time(best), 640, 570, 24, Color(0.7, 0.9, 0.7), "c")
+	_txt(String(tdef["info"]) + "  ·  " + str(int(round(game.track.length))) + " m", 640, 590, 22, Color(0.85, 0.92, 1.0), "c")
+	var best: float = game.best_laps.get(game.best_key(), INF)
+	_txt("Paras kierrosaikasi: " + _fmt_time(best), 640, 620, 24, Color(0.7, 0.9, 0.7), "c")
 	_panel(Rect2(190, 648, 900, 44))
 	_txt("ylös / alas = valitse     vasen / oikea = vaihda     A / Enter = vahvista     Start = aloita heti", 640, 678, 20, Color(1.0, 0.95, 0.6), "c")
 
@@ -160,7 +162,7 @@ func _draw_race() -> void:
 	_panel(Rect2(1280 - 330, 720 - 140, 310, 120))
 	_txt(str(kmh), 1280 - 150, 720 - 56, 88, Color.WHITE, "r")
 	_txt("mph" if mph else "km/h", 1280 - 40, 720 - 62, 28, Color(0.8, 0.85, 0.95), "r")
-	var frac := clampf(p.vel.length() / 72.0, 0.0, 1.0)
+	var frac := clampf(p.vel.length() / (72.0 * game.track.top_k), 0.0, 1.0)
 	var bar := Rect2(1280 - 316, 720 - 40, 282, 14)
 	draw_rect(bar, Color(0.1, 0.1, 0.12, 0.9))
 	var col := Color(0.3, 0.9, 0.4).lerp(Color(1.0, 0.25, 0.2), frac)

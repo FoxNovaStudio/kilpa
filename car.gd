@@ -96,10 +96,10 @@ func setup(p_track, p_color: Color, p_name: String, p_player: bool, p_skill: flo
 	is_player = p_player
 	skill = p_skill
 	if is_player:
-		max_speed = 72.0
+		max_speed = 72.0 * track.top_k
 	else:
-		max_speed = 72.0 * skill
-	corner_acc = 19.0 + (skill - 0.8) * 40.0
+		max_speed = 72.0 * track.top_k * skill
+	corner_acc = (19.0 + (skill - 0.8) * 55.0) * track.grip
 	_build_model()
 
 
@@ -137,21 +137,24 @@ func step(dt: float, now: float, laps_total: int) -> void:
 
 	var off: float = (pos - track.pts[idx]).dot(track.normals[idx])
 	var aoff := absf(off)
-	on_grass = aoff > TrackScript.ROAD_HALF + TrackScript.CURB_W
+	on_grass = aoff > track.road_half + track.curb_w
 	var top := max_speed
 	if on_grass:
-		top *= 0.6
+		top *= track.off_k
+	var gk: float = track.grip
+	var acc_k := 0.6 + 0.4 * gk
+	var brk_k := 0.5 + 0.5 * gk
 
 	# Kaasu ja jarru
 	var a := 0.0
 	if in_throttle > 0.01:
 		if sp < -0.5:
-			a = BRAKE * in_throttle
+			a = BRAKE * brk_k * in_throttle
 		else:
-			a = ACCEL * in_throttle * clampf(1.0 - maxf(sp, 0.0) / top, 0.0, 1.0)
+			a = ACCEL * acc_k * in_throttle * clampf(1.0 - maxf(sp, 0.0) / top, 0.0, 1.0)
 	if in_brake > 0.01:
 		if sp > 0.5:
-			a = -BRAKE * in_brake
+			a = -BRAKE * brk_k * in_brake
 		else:
 			a = -REV_ACCEL * in_brake * clampf(1.0 + sp / REV_MAX, 0.0, 1.0)
 	if in_throttle <= 0.01 and in_brake <= 0.01:
@@ -170,7 +173,7 @@ func step(dt: float, now: float, laps_total: int) -> void:
 	var yaw_rate := steer * STEER_RATE * sfac * clampf(absf(sp) / 5.0, 0.0, 1.0) * signf(sp)
 	if in_hbrake:
 		yaw_rate *= 1.4
-	var max_rate := MAX_LAT_ACC / maxf(absf(sp), 1.0)
+	var max_rate := MAX_LAT_ACC * gk / maxf(absf(sp), 1.0)
 	yaw_rate = clampf(yaw_rate, -max_rate, max_rate)
 	yaw -= yaw_rate * dt
 
@@ -179,14 +182,14 @@ func step(dt: float, now: float, laps_total: int) -> void:
 	var r2 := right()
 	var longv := vel.dot(f2) + a * dt
 	var lat := vel.dot(r2)
-	var grip := 7.5
+	var grip := 7.5 * (0.35 + 0.65 * gk)
 	if in_hbrake:
-		grip = 2.2
+		grip = 2.2 * (0.5 + 0.5 * gk)
 	if on_grass:
-		grip = 4.0
+		grip = 4.0 * (0.5 + 0.5 * gk)
 	lat *= 1.0 - minf(1.0, grip * dt)
 	slip = absf(lat)
-	skid = not on_grass and ((slip > 3.5 and absf(sp) > 8.0) or (in_brake > 0.55 and sp > 22.0) or (in_hbrake and absf(sp) > 8.0))
+	skid = not on_grass and ((slip > (3.5 if gk > 0.9 else 2.2) and absf(sp) > 8.0) or (in_brake > 0.55 and sp > 22.0) or (in_hbrake and absf(sp) > 8.0))
 	vel = f2 * longv + r2 * lat
 	pos += vel * dt
 
@@ -203,7 +206,7 @@ func step(dt: float, now: float, laps_total: int) -> void:
 	# Reunavalli
 	var nrm: Vector2 = track.normals[idx]
 	var off2: float = (pos - track.pts[idx]).dot(nrm)
-	var lim: float = TrackScript.WALL_OFFSET - CAR_HALF_W - 0.2
+	var lim: float = track.wall_offset - CAR_HALF_W - 0.2
 	if absf(off2) > lim:
 		var sgn := signf(off2)
 		pos -= nrm * sgn * (absf(off2) - lim)
@@ -246,7 +249,7 @@ func assist_steer() -> float:
 	var my_off: float = (pos - track.pts[idx]).dot(track.normals[idx])
 	var look: float = 8.0 + maxf(sp, 0.0) * 0.38
 	var s_t: float = track.dist[idx] + look
-	var tp: Vector2 = track.pos_at(s_t) + track.normal_at(s_t) * clampf(my_off, -4.5, 4.5)
+	var tp: Vector2 = track.pos_at(s_t) + track.normal_at(s_t) * clampf(my_off, -track.road_half * 0.56, track.road_half * 0.56)
 	return clampf(f.angle_to(tp - pos) * 2.4, -1.0, 1.0)
 
 
@@ -266,7 +269,9 @@ func ai_drive(dt: float, cars: Array, speed_cap: float) -> void:
 	# Ihanteellinen linja: kaarteen sisäreunaa
 	var ci_far: int = (idx + int((look * 2.0) / track.step)) % track.n
 	var c_far: float = track.curv[ci_far]
-	var lane_goal: float = clampf(-c_far * 260.0, -4.5, 4.5) * line_gain + lane_bias
+	var lane_lim: float = track.road_half * 0.56
+	var dodge_w: float = clampf(track.road_half * 0.45, 2.2, 3.6)
+	var lane_goal: float = clampf(-c_far * 260.0, -lane_lim, lane_lim) * line_gain + lane_bias * minf(1.0, track.road_half / 8.0)
 
 	# Väistö ja jonossa ajo
 	var block_speed := 1000.0
@@ -279,10 +284,10 @@ func ai_drive(dt: float, cars: Array, speed_cap: float) -> void:
 			var side := rel.dot(right())
 			if absf(side) < 3.0:
 				var o_off: float = (o.pos - track.pts[o.idx]).dot(track.normals[o.idx])
-				var dodge := o_off - 3.6 if my_off <= o_off else o_off + 3.6
-				if absf(dodge) > 6.2:
-					dodge = o_off + 3.6 if dodge < 0.0 else o_off - 3.6
-				lane_goal = clampf(dodge, -6.2, 6.2)
+				var dodge := o_off - dodge_w if my_off <= o_off else o_off + dodge_w
+				if absf(dodge) > track.road_half * 0.78:
+					dodge = o_off + dodge_w if dodge < 0.0 else o_off - dodge_w
+				lane_goal = clampf(dodge, -track.road_half * 0.78, track.road_half * 0.78)
 				if ahead < 9.0 and absf(side) < 2.3:
 					block_speed = minf(block_speed, maxf(o.speed(), 6.0))
 				break
@@ -297,14 +302,15 @@ func ai_drive(dt: float, cars: Array, speed_cap: float) -> void:
 
 	# Nopeussuunnittelu: jarruta ennen kaarretta
 	var target := max_speed * speed_cap
+	var brake_dec: float = AI_BRAKE * (0.5 + 0.5 * track.grip)
 	var max_d := 30.0 + maxf(sp, 0.0) * 2.2
 	var d := 6.0
 	while d < max_d:
 		var cidx: int = (idx + int(d / track.step)) % track.n
 		var c := absf(track.curv[cidx])
 		if c > 0.002:
-			var v_c := maxf(sqrt(corner_acc / c), 14.0)
-			var v_allow := sqrt(v_c * v_c + 2.0 * AI_BRAKE * d)
+			var v_c: float = maxf(sqrt(corner_acc / c), 9.0 + 5.0 * track.grip)
+			var v_allow := sqrt(v_c * v_c + 2.0 * brake_dec * d)
 			target = minf(target, v_allow)
 		d += 6.0
 	target = minf(target, block_speed)
@@ -406,8 +412,9 @@ func _build_model() -> void:
 		wheel_pivots.append(pivot)
 		wheel_spins.append(spin)
 
+	var env_p: Dictionary = track.env_params()
 	smoke = _make_emitter(Color(0.86, 0.86, 0.88), 36, 1.1, 1.6, 0.45, Vector3(0, 0.25, 1.4), Vector3(0, 0.5, 0), true, false)
-	dust = _make_emitter(Color(0.55, 0.43, 0.29), 40, 0.9, 2.6, 0.4, Vector3(0, 0.25, 1.3), Vector3(0, -1.0, 0), true, false)
+	dust = _make_emitter(env_p["dust"], 40, 0.9, 2.6, 0.4, Vector3(0, 0.25, 1.3), Vector3(0, -1.0, 0), true, false)
 	sparks = _make_emitter(Color(1.0, 0.8, 0.3), 24, 0.35, 7.0, 0.05, Vector3(0, 0.5, 0), Vector3(0, -12.0, 0), false, true)
 
 
@@ -467,8 +474,9 @@ func update_visual(dt: float) -> void:
 	wheel_pivots[0].rotation.y = -steer * 0.45
 	wheel_pivots[1].rotation.y = -steer * 0.45
 	tail_mat.emission_energy_multiplier = 3.5 if (in_brake > 0.1 and sp > 0.5) else 0.6
-	smoke.emitting = fx_on and skid and dt > 0.0
-	dust.emitting = fx_on and on_grass and absf(sp) > 12.0 and dt > 0.0
+	var loose: bool = track.surface != "asphalt"
+	smoke.emitting = fx_on and skid and not loose and dt > 0.0
+	dust.emitting = fx_on and dt > 0.0 and absf(sp) > 12.0 and (on_grass or (loose and (skid or absf(sp) > 20.0)))
 	if spark_flag:
 		spark_flag = false
 		if fx_on:
